@@ -1,6 +1,6 @@
 [project]
 name = "durakgame"
-version = "1.0.2"
+version = "1.0.4"
 authors = [
     {name = "Artem Ibragimov", email="artem.ibragimov1602@gmail.com"}
 ]
@@ -12,6 +12,9 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
+
+[project.urls]
+Github = "https://github.com/Artem-Goldenberg/Durak"
 
 [build-system]
 requires = ["hatchling"]
