@@ -1,5 +1,5 @@
 import dataclasses as dc
-from primitives import Card
+from .primitives import Card
 
 @dc.dataclass
 class Move:

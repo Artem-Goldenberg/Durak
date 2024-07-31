@@ -1,10 +1,11 @@
 import dataclasses as dc
 import itertools
-from typing import Sequence
-from player import Player
-from move import *
-from gameutils import *
-from primitives import *
+
+from .move import *
+from .player import *
+from .history import *
+from .gameutils import *
+from .primitives import *
 
 
 @dc.dataclass
@@ -25,6 +26,7 @@ class Game:
     table: Table = dc.field(default_factory=Table, init=False)
     discardPile: set[Card] = dc.field(default_factory=set, init=False)
 
+    history: GameHistory = dc.field(init=False)
     config: GameConfiguration = dc.field(default_factory=GameConfiguration)
 
     @property
@@ -55,6 +57,20 @@ class Game:
         match self.move:
             case Switch.First: return self.player2
             case Switch.Second: return self.player1
+    
+    @property
+    def result(self) -> GameResult:
+        match not self.player1.hand, not self.player2.hand:
+            case True, True: # both hands are empty
+                return GameResult.Draw
+            case True, False:
+                return GameResult.Win
+            case False, True:
+                return GameResult.Loss
+            case False, False:
+                return GameResult.Unfinished
+        assert False
+
 
     def __post_init__(self):
         assert len(set(self.deck)) == self.config.InitialDeckCC
@@ -67,29 +83,28 @@ class Game:
  
         self.trump = self.deck[i]
         self.deck = self.deck[i + 1 :] + [self.trump]
-    
-    def kickoff(self, numberOfTurns: int | None = None) -> GameResult:
-        turns = 0
+        self.history = GameHistory(list(self.player1.hand), list(self.player2.hand), list(self.deck))
+
+    def kickoff(self, numberOfMoves: int | None = None):
+        moves = 0
         while not self.isFinished:
-            oldTurn = self.turn
-            if numberOfTurns is not None and turns >= 2 * numberOfTurns:
-                return GameResult.Unfinished
+            if numberOfMoves is not None and moves >= 2 * numberOfMoves:
+                break
             options = self.generateOptions()
+            if not options:
+                print("here")
             index = self.currentPlayer.nextMove(self.state, options)
+            self.updateHistory(options[index])
             self.process(options[index])
-            if self.turn != oldTurn:
-                turns += 1
-        
-        match not self.player1.hand, not self.player2.hand:
-            case True, True: # both hands are empty
-                return GameResult.Draw
-            case True, False:
-                return GameResult.Win
-            case False, True:
-                return GameResult.Loss
-            case False, False:
-                return GameResult.Unfinished
-        assert False
+            moves += 1
+        self.history.result = self.result
+    
+    def updateHistory(self, move: Move):
+        match self.move:
+            case Switch.First:
+                self.history.p1Moves.append(move)
+            case Switch.Second:
+                self.history.p2Moves.append(move)
     
     def generateOptions(self) -> list[Move]:
         """Generates a list of all available moves in the current state
@@ -111,7 +126,9 @@ class Game:
         tossableValues = self.table.getTossableValues()
 
         maxCards = self.config.MaxTossAD if self.discardPile else self.config.MaxTossBD
-        if len(self.table.defense) == maxCards:
+        # if we've reached max cards on the table for this round, or if opponent has no more cards,
+        # then we have to end our turn
+        if len(self.table.defense) == maxCards or not self.currentOpponent.hand:
             # just random assert
             assert not self.table.isForfeited
             return [EndingMove()]
@@ -119,6 +136,7 @@ class Game:
         attackCards = list(filter(lambda card: card.value in tossableValues, cards))
 
         if self.table.isForfeited:
+            # generate all possible combinations to toss to opponent
             # initial opponent's card count
             opponentCC = len(self.table.defense) + len(self.currentOpponent.hand)
             cardsToToss = min(opponentCC, self.config.HandCC) - len(self.table.attack)

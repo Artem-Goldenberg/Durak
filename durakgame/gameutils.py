@@ -1,6 +1,5 @@
-from primitives import Card, CardValue
 import dataclasses as dc
-
+from .primitives import Card, CardValue
 
 @dc.dataclass
 class Table:

@@ -1,8 +1,8 @@
 import random
 import dataclasses as dc
-from primitives import Card
-from move import Move
-from gameutils import GameState
+from .primitives import Card
+from .move import Move
+from .gameutils import GameState
 
 @dc.dataclass
 class Player:
